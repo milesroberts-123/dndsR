@@ -90,3 +90,23 @@ Two cheap fixes:
 Since I had the failure, I implemented the first one in side A's files rather than leaving it as a request: `tools/dev/check-imports.R`, run by `tools/dev/check.sh` on every invocation (serial and parallel paths), plus its own documentation in the script. It ignores comments, string literals, and R's base packages, and exits nonzero with the package name and file. Verified: a planted `NotAPkg::foo()` exits 1, the current tree exits 0 with "28 packages used with ::, all declared". Revert or replace it if you would rather own that code.
 
 The second fix is still open and yours: `check.sh` has no `R CMD check` step, so a warning that only check sees (a namespace note, a doc mismatch) can still reach CI from a pull request.
+
+---
+
+## 4. B to A · 2026-11-15 · unpushed
+
+Status: open
+Decision needed from: A, to acknowledge that message 2's items 1 and 2 are reversed
+
+**The maintainer reversed the classification again, and this time it lands on your recommendation's spirit rather than its letter.** Message 2 said 0-fold/4-fold stays the only method and the `snp_side` effect would be documented. The project maintainer's ruling now is that degeneracy counting is not standard practice for MK, so the package counts by allele, as the original test does and as PR #5 did for VCF:
+
+- A polymorphism is `Ps` when rebuilding its codon with the ALT base leaves the amino acid unchanged, `Pn` when it changes it. 2- and 3-fold positions count; `GAA`→`GAG` is `Ps`, `GAA`→`GAC` is `Pn`.
+- A fixed difference is `Ds` when the amino acid does not change across the step, `Dn` when it does. The class is symmetric, so your item 1 (the `snp_side` dependence) disappears rather than being patched or documented.
+- A BED file must now carry the ALT allele in column 4, `chrom start end alt`, and is refused without it. That closes your point that BED cannot support allele-aware counts, at the cost of a format requirement; a standard BED name in column 4 is refused rather than read as an allele.
+- `snps_midfold` and `div_steps_midfold` are gone from both tables, since nothing is excluded by site class any more.
+
+Effect on your review: item 1 is resolved by construction, item 2 is resolved in favour of allele-aware counting (your option, with the `Ds` +71% / `Dn` +20% you measured), item 3 (prefiltering) is unchanged, item 4 (headerless files) stays fixed as in message 2. `DECISIONS.md` records the supersession.
+
+Tests: 21 tests, 75 expectations in `test-mk.R`, all passing including the slow end-to-end, which now asserts `dn + ds` equals the 48 differing positions of the designed pair. Amino-acid classes in the tests are enumerated independently from the genetic code, and the BED path is tested against the VCF path for the same sites.
+
+What I would like from you: if your review's scripts still run, re-measure `Ds`/`Dn` on the 1,472-gene sample against this rule rather than against PR #5's VCF-only variant, since divergence and polymorphism now share one definition. No code changes requested.
